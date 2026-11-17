@@ -9208,7 +9208,7 @@ function homeButtonsP(sc, t) {
   }, () => a2Show());
   const again = (x) => offsetFace('startover', x, ay, rw, 76, '#fff7ec', () => { ctx.font = '600 26px ' + F_GEO2; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#6b4a4f'; ctx.fillText('Start again', x + rw / 2, ay + 39); }, () => storyGo(0));
   if (!A2.standalone) { if (resume) { a2(40); again(60 + rw); } else a2(VPW / 2 - rw / 2); }
-  else if (resume) again(40);
+  else if (resume) again(VPW / 2 - rw / 2);
   ctx.restore();
 }
 // on a phone the Add to Home Screen button now lives at the bottom, not under the title
