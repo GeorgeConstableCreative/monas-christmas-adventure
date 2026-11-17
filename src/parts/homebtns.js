@@ -53,3 +53,6 @@ function homeButtonsP(sc, t) {
   const _sign = SCENES.home.drawSign, base = Object.getPrototypeOf ? null : null;
   SCENES.home.drawSign = function (t) { const sa = A2.standalone; if (PORT) A2.standalone = true; try { _sign.call(this, t); } finally { A2.standalone = sa; } };
 }
+// iOS reports the safe area a moment after launch — measure again once it has settled
+setTimeout(resize, 300); setTimeout(resize, 1200);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) setTimeout(resize, 150); });

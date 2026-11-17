@@ -10,6 +10,20 @@ let SCENE_INV = new DOMMatrix(), LAST_DEV = { x: 0, y: 0 }, PDEFER = null, PLATE
 function deferLate(fn) { if (PLATE) PLATE.push(fn); else fn(); }
 const VPW = 760, VPH = 1400, TOPBAR = 134;
 
+// the iPhone's clock, signal and battery sit over the top of the screen when the game runs from the Home Screen:
+// measure the real safe area with a hidden probe (custom properties don't resolve env() reliably)
+function safeInsets() {
+  let pr = document.getElementById('safeprobe');
+  if (!pr) { pr = document.createElement('div'); pr.id = 'safeprobe'; pr.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)'; document.body.appendChild(pr); }
+  const cs = getComputedStyle(pr);
+  let t = parseFloat(cs.paddingTop) || 0, b = parseFloat(cs.paddingBottom) || 0;
+  if (window.__SAFE) { t = window.__SAFE.t; b = window.__SAFE.b; }
+  // safety net: an iPhone app launched from the Home Screen always has a status bar on top
+  const ios = /iP(hone|od)/.test(navigator.userAgent), standalone = navigator.standalone || matchMedia('(display-mode: standalone)').matches;
+  if (ios && standalone && t < 20) t = 50;
+  if (ios && standalone && b < 10 && screen.height >= 812) b = 34;
+  return { t, b };
+}
 function resize() {
   const vw = window.innerWidth, vh = window.innerHeight;
   PORT = vh > vw * 1.1;
@@ -19,8 +33,8 @@ function resize() {
     cv.style.width = vw + 'px'; cv.style.height = vh + 'px'; cv.style.left = '0px'; cv.style.top = '0px';
     cv.width = Math.round(vw * DPR); cv.height = Math.round(vh * DPR);
     K = cv.width / PW;
-    const cs = getComputedStyle(document.documentElement), u = PW / vw;
-    SAFE_T = (parseFloat(cs.getPropertyValue('--sat')) || 0) * u; SAFE_B = (parseFloat(cs.getPropertyValue('--sab')) || 0) * u;
+    const ins = safeInsets(), u = PW / vw;
+    SAFE_T = ins.t * u; SAFE_B = ins.b * u;
   } else {
     PW = W; PH = H; SAFE_T = SAFE_B = 0;
     viewScale = Math.min(vw / W, vh / H);
