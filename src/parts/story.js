@@ -222,7 +222,7 @@ SCENES.dress = {
     livingLive(ctx, t, 'evening');
     ctx.fillStyle = 'rgba(40,20,30,.5)'; ctx.fillRect(0, 0, W, H);
     glowAt(ctx, 330, 600, 330, '255,214,150', .35, .55);
-    text(ctx, 'Dress Mona for Christmas!', W / 2, 74, { size: 50, color: '#fffaf0', weight: 700, stroke: 'rgba(43,29,26,.45)', sw: 8 });
+    text(ctx, 'Dress Mona!', W / 2, 74, { size: 50, color: '#fffaf0', weight: 700, stroke: 'rgba(43,29,26,.45)', sw: 8 });
     text(ctx, 'Pick any outfit. She can change whenever she likes.', W / 2, 122, { size: 23, color: '#ffe9c8', weight: 600 });
     // big Mona on a rug
     ell(ctx, 330, 700, 210, 44); fillP(ctx, 'rgba(255,240,220,.18)');

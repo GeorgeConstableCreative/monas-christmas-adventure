@@ -114,9 +114,11 @@ function renderFrame(dt) {
     if (!PORT) {
       ctx.setTransform(K, 0, 0, K, LOX * K, LOY * K);
       SCENE_INV = new DOMMatrix([K, 0, 0, K, LOX * K, LOY * K]).inverse();
-      { const sh = shakeIn(paused ? 0 : dt); scene.draw(); if (sh) ctx.restore(); }
-      if (scene.vignette !== false) vigDraw();
-      ambientSides();
+      const wide = LOX > .5 || LOY > .5;
+      if (wide) underlaySides(scene);
+      { const sh = shakeIn(paused ? 0 : dt); if (wide) extDraw(() => scene.draw()); else scene.draw(); if (sh) ctx.restore(); }
+      if (scene.vignette !== false && !wide) vigDraw();
+      if (wide) sampleSides(scene);
       drawParticles(ctx); drawRipples(dt);
       if (howCard) drawHow(); else if (paused) drawPause();
       if (!paused && scene.hud !== false && !howCard) drawHUD();
@@ -164,19 +166,22 @@ function portraitFrame(dt) {
       }
     }
     // the scene, scaled and cropped into its band
-    ctx.save(); ctx.beginPath(); ctx.rect(0, top, PW, bh); ctx.clip(); ctx.transform(M.a, M.b, M.c, M.d, M.e, M.f);
+    // no borders: the scene is allowed to draw on past its own edges, all the way down the phone
+    const ext = !F.rot && !PVIEW.fill;
+    if (ext) underlayPortrait(sc, top0, top, bh);
+    ctx.save(); ctx.beginPath(); if (ext) ctx.rect(0, top0, PW, PH - top0); else ctx.rect(0, top, PW, bh); ctx.clip(); ctx.transform(M.a, M.b, M.c, M.d, M.e, M.f);
     PDEFER = []; PLATE = [];
     UNROT = F.rot ? -F.rot : 0;
-    { const sh = shakeIn(paused ? 0 : dt); try { sc.draw(); } finally { if (sh) ctx.restore(); } }
+    { const sh = shakeIn(paused ? 0 : dt); try { if (ext) extDraw(() => sc.draw()); else sc.draw(); } finally { if (sh) ctx.restore(); } }
     const Q = PDEFER, QL = PLATE; PDEFER = null; PLATE = null;
-    if (sc.vignette !== false) vigDraw();
+    if (sc.vignette !== false && !ext) vigDraw();
     drawParticles(ctx); drawRipples(dt); UNROT = 0;
     ctx.restore();
     // the dock: when the scene fills the phone, the goal and scores float over the bottom of it;
     // otherwise they sit on a warm dark panel with a festive edge
     if (!PVIEW.fill) {
       // no borders: the scene's own colours carry on above and below it, right down to the bottom of the phone
-      ambientPortrait(top0, top, bh);
+      samplePortrait(sc, top, bh);
     }
     Q.forEach(fn => fn());
     dockLayout();
@@ -497,45 +502,64 @@ lightMap = function (amb, lights) {
   _lightMap(p.join(','), lights.map(L => Object.assign({}, L, { ca: (L.ca == null ? .16 : L.ca) * 1.3 })));
 };
 
-/* ---- no borders: carry the scene's own edge colours out into any spare space ----
-   The edge of the scene is shrunk to a few pixels and stretched back out, which blurs it into a soft wash. */
-function ambCanvas() { if (!AMB) { AMB = document.createElement('canvas'); AMB.width = 32; AMB.height = 32; } return AMB; }
-function ambientSides() {
-  if (LOX <= .5 && LOY <= .5) return;
-  const c = ambCanvas(), g = c.getContext('2d'), x0 = LOX * K, y0 = LOY * K, w = W * K, h = H * K;
-  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.imageSmoothingEnabled = true;
-  if (LOX > .5) {
-    const sw = Math.max(2, 140 * K);
-    for (const side of [0, 1]) {
-      g.clearRect(0, 0, 32, 32); g.drawImage(cv, side ? x0 + w - sw : x0, y0, sw, h, 0, 0, 4, 12);
-      const dx = side ? x0 + w : 0, dw = x0 + 1;
-      ctx.drawImage(c, side ? 3 : 0, 0, 1, 12, side ? dx - 1 : 0, y0, dw, h);
-      const gr = ctx.createLinearGradient(side ? dx : dx + dw, 0, side ? dx + dw : dx, 0); gr.addColorStop(0, 'rgba(20,12,14,0)'); gr.addColorStop(1, 'rgba(20,12,14,.38)'); ctx.fillStyle = gr; ctx.fillRect(dx - 1, y0, dw + 1, h);
+/* ---- no borders: the scene carries on past its own edges ----
+   While a scene draws, any background fill that reaches an edge of the 1240 x 900 stage (walls, floors, skies,
+   gradients) is extended on outwards, and full-stage background pictures have their edge pixels carried on.
+   Anything a scene still leaves empty is filled with the plain colour found along that edge. */
+function extDraw(fn) {
+  const base = ctx.getTransform(), fr = ctx.fillRect, di = ctx.drawImage, BIG = 4000;
+  const same = () => { const m = ctx.getTransform(); return Math.abs(m.a - base.a) < 1e-4 && Math.abs(m.b - base.b) < 1e-4 && Math.abs(m.c - base.c) < 1e-4 && Math.abs(m.d - base.d) < 1e-4 && Math.abs(m.e - base.e) < .6 && Math.abs(m.f - base.f) < .6; };
+  ctx.fillRect = function (x, y, w, h) {
+    if (w < 0) { x += w; w = -w; } if (h < 0) { y += h; h = -h; }
+    if (same()) {
+      let x0 = x, y0 = y, x1 = x + w, y1 = y + h;
+      if (h >= H * .3) { if (x <= .5) x0 = -BIG; if (x + w >= W - .5) x1 = W + BIG; }
+      if (w >= W * .5) { if (y <= .5) y0 = -BIG; if (y + h >= H - .5) y1 = H + BIG; }
+      return fr.call(this, x0, y0, x1 - x0, y1 - y0);
     }
-  }
-  if (LOY > .5) {
-    const sh = Math.max(2, 120 * K);
-    for (const side of [0, 1]) {
-      g.clearRect(0, 0, 32, 32); g.drawImage(cv, 0, side ? y0 + h - sh : y0, cv.width, sh, 0, 0, 32, 4);
-      const dy = side ? y0 + h : 0, dh = y0 + 1;
-      ctx.drawImage(c, 0, side ? 3 : 0, 32, 1, 0, side ? dy - 1 : 0, cv.width, dh);
+    return fr.call(this, x, y, w, h);
+  };
+  ctx.drawImage = function (img, a, b, c, d, e, f, g2, h2) {
+    const r = di.apply(this, arguments);
+    if (arguments.length >= 5) {
+      let sx, sy, sw, sh, dx, dy, dw, dh;
+      if (arguments.length >= 9) { sx = a; sy = b; sw = c; sh = d; dx = e; dy = f; dw = g2; dh = h2; } else { sx = 0; sy = 0; sw = img.width; sh = img.height; dx = a; dy = b; dw = c; dh = d; }
+      // a full-size backdrop (the stage, or a room picture under a camera): carry its edges on
+      if (Math.abs(dw) >= W * .9 && Math.abs(dh) >= H * .9 && sw > 2 && sh > 2 && !(img instanceof HTMLVideoElement)) {
+        const ky = sh / dh, kx = sw / dw;
+        di.call(this, img, sx, sy, sw, Math.max(1, ky), dx, -BIG, dw, BIG + dy);           // top edge carries on up
+        di.call(this, img, sx, sy + sh - Math.max(1, ky), sw, Math.max(1, ky), dx, dy + dh, dw, BIG); // bottom edge on down
+        di.call(this, img, sx, sy, Math.max(1, kx), sh, -BIG, dy, BIG + dx, dh);           // left
+        di.call(this, img, sx + sw - Math.max(1, kx), sy, Math.max(1, kx), sh, dx + dw, dy, BIG, dh); // right
+      }
     }
-  }
+    return r;
+  };
+  try { fn(); } finally { delete ctx.fillRect; delete ctx.drawImage; }
+}
+function ambCanvas() { if (!AMB) { AMB = document.createElement('canvas'); AMB.width = 1; AMB.height = 1; AMB.g = AMB.getContext('2d', { willReadFrequently: true }); } return AMB; }
+function edgeColour(sx, sy, sw, sh) {
+  const c = ambCanvas(); c.g.clearRect(0, 0, 1, 1);
+  try { c.g.drawImage(cv, sx, sy, Math.max(1, sw), Math.max(1, sh), 0, 0, 1, 1); const d = c.g.getImageData(0, 0, 1, 1).data; return 'rgb(' + d[0] + ',' + d[1] + ',' + d[2] + ')'; } catch (e) { return null; }
+}
+function underlayPortrait(sc, top0, top, bh) {
+  ctx.save(); ctx.setTransform(K, 0, 0, K, 0, 0);
+  ctx.fillStyle = sc._ambT || '#1e1517'; ctx.fillRect(0, top0, PW, top + bh / 2 - top0);
+  ctx.fillStyle = sc._ambB || '#1e1517'; ctx.fillRect(0, top + bh / 2, PW, PH - top - bh / 2);
   ctx.restore();
 }
-function ambientPortrait(top0, top, bh) {
-  const c = ambCanvas(), g = c.getContext('2d'), Kk = K, sh = Math.max(2, 90 * Kk);
-  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.imageSmoothingEnabled = true;
-  const bandT = top * Kk, bandB = (top + bh) * Kk, t0 = top0 * Kk;
-  if (bandT - t0 > 1) { // above the scene, up to the top bar
-    g.clearRect(0, 0, 32, 32); g.drawImage(cv, 0, bandT, cv.width, sh, 0, 0, 12, 4);
-    ctx.drawImage(c, 0, 0, 12, 1, 0, t0, cv.width, bandT - t0 + 1);
-    const gr = ctx.createLinearGradient(0, bandT, 0, t0); gr.addColorStop(0, 'rgba(20,12,14,0)'); gr.addColorStop(1, 'rgba(20,12,14,.35)'); ctx.fillStyle = gr; ctx.fillRect(0, t0, cv.width, bandT - t0 + 1);
-  }
-  if (cv.height - bandB > 1) { // below the scene, all the way to the bottom of the phone
-    g.clearRect(0, 0, 32, 32); g.drawImage(cv, 0, bandB - sh, cv.width, sh, 0, 0, 12, 4);
-    ctx.drawImage(c, 0, 3, 12, 1, 0, bandB - 1, cv.width, cv.height - bandB + 1);
-    const gr = ctx.createLinearGradient(0, bandB, 0, cv.height); gr.addColorStop(0, 'rgba(20,12,14,.05)'); gr.addColorStop(1, 'rgba(20,12,14,.5)'); ctx.fillStyle = gr; ctx.fillRect(0, bandB - 1, cv.width, cv.height - bandB + 1);
-  }
+function samplePortrait(sc, top, bh) {
+  sc._ambT = edgeColour(0, top * K, cv.width, 6 * K) || sc._ambT;
+  sc._ambB = edgeColour(0, (top + bh) * K - 6 * K, cv.width, 6 * K) || sc._ambB;
+}
+function underlaySides(sc) {
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = sc._ambL || '#1e1517'; ctx.fillRect(0, 0, cv.width / 2, cv.height);
+  ctx.fillStyle = sc._ambR || '#1e1517'; ctx.fillRect(cv.width / 2, 0, cv.width / 2, cv.height);
   ctx.restore();
+}
+function sampleSides(sc) {
+  const x0 = LOX * K, y0 = LOY * K, w = W * K, h = H * K;
+  sc._ambL = edgeColour(x0, y0, 6 * K, h) || sc._ambL;
+  sc._ambR = edgeColour(x0 + w - 6 * K, y0, 6 * K, h) || sc._ambR;
 }

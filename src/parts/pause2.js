@@ -32,3 +32,11 @@ drawPause = function () {
     label('HOME', bx + hw2 + 24 + 10, hw2, true, 24);
   }, () => { paused = false; go('home'); });
 };
+// sideways on a wide phone the patterned menu backdrop is simply made wide enough to reach both edges
+{
+  const _mb = menuBackdrop;
+  menuBackdrop = function (t) {
+    if (!PORT && (LOX > .5 || LOY > .5)) { const w = Math.ceil(W + 2 * LOX), h = Math.ceil(H + 2 * LOY); ctx.drawImage(xQuiltCached(w, h, 190, 0), -LOX, -LOY, w, h); ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.fillRect(-LOX, -LOY, w, h); }
+    else _mb(t);
+  };
+}
