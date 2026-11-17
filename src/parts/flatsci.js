@@ -14,8 +14,8 @@ palMap = function (c) {
   if (mx !== mn) { const d = mx - mn; s = l > .5 ? d / (2 - mx - mn) : d / (mx + mn); h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; h /= 6; }
   if (l < .14) v = c;
   else {
-    if (s < .16) { h = 222 / 360; s = .06 + (1 - l) * .06; l = .16 + l * .8; }
-    else { s = Math.min(1, s * 1.35 + .08); l = Math.min(.92, l * .96 + .02); }
+    if (s < .16) { h = 222 / 360; s = .06 + (1 - l) * .06; l = .22 + l * .8; }
+    else { s = Math.min(1, s * 1.5 + .12); l = Math.min(.93, l * .94 + .1); }
     const q = l < .5 ? l * (1 + s) : l + s - l * s, pp = 2 * l - q, hue = t => { t = (t + 1) % 1; return t < 1 / 6 ? pp + (q - pp) * 6 * t : t < .5 ? q : t < 2 / 3 ? pp + (q - pp) * (2 / 3 - t) * 6 : pp; };
     v = 'rgba(' + Math.round(hue(h + 1 / 3) * 255) + ',' + Math.round(hue(h) * 255) + ',' + Math.round(hue(h - 1 / 3) * 255) + ',' + a + ')';
   }
@@ -25,9 +25,9 @@ PAL_CACHE.clear();
 // soft glow from above and a deep blue vignette round the edges
 vigDraw = function () {
   ctx.save();
-  const gl = ctx.createRadialGradient(W * .5, H * .25, 40, W * .5, H * .25, W * .7); gl.addColorStop(0, 'rgba(255,240,220,.16)'); gl.addColorStop(1, 'rgba(255,240,220,0)');
+  const gl = ctx.createRadialGradient(W * .5, H * .25, 40, W * .5, H * .25, W * .7); gl.addColorStop(0, 'rgba(255,244,228,.24)'); gl.addColorStop(1, 'rgba(255,240,220,0)');
   ctx.globalCompositeOperation = 'screen'; ctx.fillStyle = gl; ctx.fillRect(0, 0, W, H);
-  const vg = ctx.createRadialGradient(W / 2, H / 2, H * .4, W / 2, H / 2, W * .78); vg.addColorStop(0, 'rgba(18,22,70,0)'); vg.addColorStop(1, 'rgba(18,22,70,.32)');
+  const vg = ctx.createRadialGradient(W / 2, H / 2, H * .4, W / 2, H / 2, W * .78); vg.addColorStop(0, 'rgba(18,22,70,0)'); vg.addColorStop(1, 'rgba(18,22,70,.12)');
   ctx.globalCompositeOperation = 'multiply'; ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
   ctx.restore();
 };

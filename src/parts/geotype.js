@@ -15,7 +15,7 @@ function geoLetters(g, S, size, o) {
     const col = o.mono || GT_COLS[(ci * 5 + seed) % GT_COLS.length]; ci++;
     const dy = (((i * 37 + seed * 11) % 7) - 3) * size * .03 + (o.wobble && !REDUCE_MOTION ? Math.sin(t * 1.6 + i * .9) * size * .015 : 0);
     g.save(); g.translate(px + ws[i] / 2, dy + (1 - E.out(k)) * size * .25); g.scale(.85 + .15 * E.out(k), .85 + .15 * E.out(k));
-    g.globalAlpha = .95 * k; g.fillStyle = col; g.fillText(c, -ws[i] / 2, 0); g.restore();
+    g.globalAlpha = k; g.lineJoin = 'round'; g.lineWidth = Math.max(3, size * .09); g.strokeStyle = '#ffffff'; g.strokeText(c, -ws[i] / 2, 0); g.globalAlpha = .95 * k; g.fillStyle = col; g.fillText(c, -ws[i] / 2, 0); g.restore();
     px += ws[i] - ov;
   });
   return tw;
