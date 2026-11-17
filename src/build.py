@@ -74,7 +74,7 @@ for nm in ['btn', 'panel', 'doneCard', 'skipBtn', 'drawHUD']:
         if L[i] is not None and L[i].startswith('function ' + nm + '('):
             L[i] = L[i].replace('function ' + nm + '(', 'function ' + nm + '_v1(', 1); break
     else: raise Exception('no def ' + nm)
-parts = ['visual.js', 'ui.js', 'story.js', 'arrive.js', 'groc.js', 'sofa.js', 'games.js', 'bed.js', 'rave.js', 'pantry.js', 'remote.js', 'arcade2.js', 'card3.js', 'polish.js', 'portrait.js', 'design.js', 'xmas.js', 'lettering.js','cardx.js','inkstyle.js','tiles.js','tags.js','remote2.js','pastel.js','hand.js','remote3.js','remote4.js','levels2.js','unrot.js','arcadefx.js','kart3d.js','titlesign.js','house2.js','flatsci.js','geotype.js']
+parts = ['visual.js', 'ui.js', 'story.js', 'arrive.js', 'groc.js', 'sofa.js', 'games.js', 'bed.js', 'rave.js', 'pantry.js', 'remote.js', 'arcade2.js', 'card3.js', 'polish.js', 'portrait.js', 'design.js', 'xmas.js', 'lettering.js','cardx.js','inkstyle.js','tiles.js','tags.js','remote2.js','pastel.js','hand.js','remote3.js','remote4.js','levels2.js','unrot.js','arcadefx.js','kart3d.js','titlesign.js','house2.js','flatsci.js','geotype.js','a2hs.js']
 L[i_boot] = '\n'.join(open(os.path.join(HERE, 'parts', p)).read() for p in parts) + '\n' + L[i_boot]
 out = '\n'.join(l for l in L if l is not None)
 
