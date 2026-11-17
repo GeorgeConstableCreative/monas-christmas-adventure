@@ -5,6 +5,7 @@
    · a dock underneath for the goal, the scores and a big thumb area for swipes and taps.
    Menus (Sections, Arcade, Dress Mona, the intro) get their own upright layouts.
    Landscape screens keep the original 1240 x 900 layout untouched. */
+let LOX = 0, LOY = 0, AMB = null;
 let PORT = false, PW = W, PH = H, SAFE_T = 0, SAFE_B = 0;
 let SCENE_INV = new DOMMatrix(), LAST_DEV = { x: 0, y: 0 }, PDEFER = null, PLATE = null, DOCK = null, SKIP_CB = null;
 function deferLate(fn) { if (PLATE) PLATE.push(fn); else fn(); }
@@ -37,12 +38,12 @@ function resize() {
     SAFE_T = ins.t * u; SAFE_B = ins.b * u;
   } else {
     PW = W; PH = H; SAFE_T = SAFE_B = 0;
+    // sideways: the canvas covers the whole screen; the game sits in the middle at full height
+    // and the spare width either side is filled with the scene's own colours (no black bars)
     viewScale = Math.min(vw / W, vh / H);
-    const cw = Math.floor(W * viewScale), ch = Math.floor(H * viewScale);
-    cv.style.width = cw + 'px'; cv.style.height = ch + 'px';
-    cv.style.left = Math.floor((vw - cw) / 2) + 'px'; cv.style.top = Math.floor((vh - ch) / 2) + 'px';
-    DPR = Math.min(DPR, 2); cv.width = Math.round(cw * DPR); cv.height = Math.round(ch * DPR);
-    K = cv.width / W;
+    cv.style.width = vw + 'px'; cv.style.height = vh + 'px'; cv.style.left = '0px'; cv.style.top = '0px';
+    DPR = Math.min(DPR, 2); cv.width = Math.round(vw * DPR); cv.height = Math.round(vh * DPR);
+    K = cv.width / vw * viewScale; LOX = (vw / viewScale - W) / 2; LOY = (vh / viewScale - H) / 2;
   }
   cacheStore.clear();
   const rot = document.getElementById('rotate'); if (rot) rot.style.display = 'none';
@@ -111,9 +112,11 @@ function renderFrame(dt) {
   if (scene) {
     if (!paused && !howCard) { scene.t += dt; if (scene.update) scene.update(dt); updateParticles(dt); }
     if (!PORT) {
-      SCENE_INV = new DOMMatrix([K, 0, 0, K, 0, 0]).inverse();
+      ctx.setTransform(K, 0, 0, K, LOX * K, LOY * K);
+      SCENE_INV = new DOMMatrix([K, 0, 0, K, LOX * K, LOY * K]).inverse();
       { const sh = shakeIn(paused ? 0 : dt); scene.draw(); if (sh) ctx.restore(); }
       if (scene.vignette !== false) vigDraw();
+      ambientSides();
       drawParticles(ctx); drawRipples(dt);
       if (howCard) drawHow(); else if (paused) drawPause();
       if (!paused && scene.hud !== false && !howCard) drawHUD();
@@ -151,6 +154,15 @@ function portraitFrame(dt) {
     PVIEW = { s, fill: false, pan: false };
     SCENE_INV = new DOMMatrix([K, 0, 0, K, 0, 0]).multiply(M).inverse();
     DOCK = { y: top + bh + 16, y0: top + bh, stats: [], items: [] };
+    // story scenes: the captions and scores sit at the bottom of the phone, the scene fills the space above
+    if (!F.rot && F.dock == null && !GAMES[sceneName] && !sc.swipeDock) {
+      const dk = Math.max(sc._dockMax || 0, F.dockMin || 120), y0 = PH - SAFE_B - dk - 14;
+      if (y0 > top + bh) {
+        const nt = top0 + Math.max(0, y0 - top0 - bh) * .5; M = new DOMMatrix().translate(0, nt - top).multiply(M); top = nt;
+        SCENE_INV = new DOMMatrix([K, 0, 0, K, 0, 0]).multiply(M).inverse();
+        DOCK = { y: y0 + 16, y0, stats: [], items: [] };
+      }
+    }
     // the scene, scaled and cropped into its band
     ctx.save(); ctx.beginPath(); ctx.rect(0, top, PW, bh); ctx.clip(); ctx.transform(M.a, M.b, M.c, M.d, M.e, M.f);
     PDEFER = []; PLATE = [];
@@ -163,8 +175,8 @@ function portraitFrame(dt) {
     // the dock: when the scene fills the phone, the goal and scores float over the bottom of it;
     // otherwise they sit on a warm dark panel with a festive edge
     if (!PVIEW.fill) {
-      if (top > top0) { ctx.fillStyle = XC.pine; ctx.fillRect(0, top0, PW, top - top0); xStrip(0, top - 22, PW, 22, 9); }
-      dockBg(DOCK.y0);
+      // no borders: the scene's own colours carry on above and below it, right down to the bottom of the phone
+      ambientPortrait(top0, top, bh);
     }
     Q.forEach(fn => fn());
     dockLayout();
@@ -484,3 +496,46 @@ lightMap = function (amb, lights) {
   const p = String(amb).split(','); if (p.length === 4) p[3] = String(+(parseFloat(p[3]) * .6).toFixed(3));
   _lightMap(p.join(','), lights.map(L => Object.assign({}, L, { ca: (L.ca == null ? .16 : L.ca) * 1.3 })));
 };
+
+/* ---- no borders: carry the scene's own edge colours out into any spare space ----
+   The edge of the scene is shrunk to a few pixels and stretched back out, which blurs it into a soft wash. */
+function ambCanvas() { if (!AMB) { AMB = document.createElement('canvas'); AMB.width = 32; AMB.height = 32; } return AMB; }
+function ambientSides() {
+  if (LOX <= .5 && LOY <= .5) return;
+  const c = ambCanvas(), g = c.getContext('2d'), x0 = LOX * K, y0 = LOY * K, w = W * K, h = H * K;
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.imageSmoothingEnabled = true;
+  if (LOX > .5) {
+    const sw = Math.max(2, 140 * K);
+    for (const side of [0, 1]) {
+      g.clearRect(0, 0, 32, 32); g.drawImage(cv, side ? x0 + w - sw : x0, y0, sw, h, 0, 0, 4, 12);
+      const dx = side ? x0 + w : 0, dw = x0 + 1;
+      ctx.drawImage(c, side ? 3 : 0, 0, 1, 12, side ? dx - 1 : 0, y0, dw, h);
+      const gr = ctx.createLinearGradient(side ? dx : dx + dw, 0, side ? dx + dw : dx, 0); gr.addColorStop(0, 'rgba(20,12,14,0)'); gr.addColorStop(1, 'rgba(20,12,14,.38)'); ctx.fillStyle = gr; ctx.fillRect(dx - 1, y0, dw + 1, h);
+    }
+  }
+  if (LOY > .5) {
+    const sh = Math.max(2, 120 * K);
+    for (const side of [0, 1]) {
+      g.clearRect(0, 0, 32, 32); g.drawImage(cv, 0, side ? y0 + h - sh : y0, cv.width, sh, 0, 0, 32, 4);
+      const dy = side ? y0 + h : 0, dh = y0 + 1;
+      ctx.drawImage(c, 0, side ? 3 : 0, 32, 1, 0, side ? dy - 1 : 0, cv.width, dh);
+    }
+  }
+  ctx.restore();
+}
+function ambientPortrait(top0, top, bh) {
+  const c = ambCanvas(), g = c.getContext('2d'), Kk = K, sh = Math.max(2, 90 * Kk);
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.imageSmoothingEnabled = true;
+  const bandT = top * Kk, bandB = (top + bh) * Kk, t0 = top0 * Kk;
+  if (bandT - t0 > 1) { // above the scene, up to the top bar
+    g.clearRect(0, 0, 32, 32); g.drawImage(cv, 0, bandT, cv.width, sh, 0, 0, 12, 4);
+    ctx.drawImage(c, 0, 0, 12, 1, 0, t0, cv.width, bandT - t0 + 1);
+    const gr = ctx.createLinearGradient(0, bandT, 0, t0); gr.addColorStop(0, 'rgba(20,12,14,0)'); gr.addColorStop(1, 'rgba(20,12,14,.35)'); ctx.fillStyle = gr; ctx.fillRect(0, t0, cv.width, bandT - t0 + 1);
+  }
+  if (cv.height - bandB > 1) { // below the scene, all the way to the bottom of the phone
+    g.clearRect(0, 0, 32, 32); g.drawImage(cv, 0, bandB - sh, cv.width, sh, 0, 0, 12, 4);
+    ctx.drawImage(c, 0, 3, 12, 1, 0, bandB - 1, cv.width, cv.height - bandB + 1);
+    const gr = ctx.createLinearGradient(0, bandB, 0, cv.height); gr.addColorStop(0, 'rgba(20,12,14,.05)'); gr.addColorStop(1, 'rgba(20,12,14,.5)'); ctx.fillStyle = gr; ctx.fillRect(0, bandB - 1, cv.width, cv.height - bandB + 1);
+  }
+  ctx.restore();
+}
