@@ -44,7 +44,7 @@ function homeButtonsP(sc, t) {
     ctx.font = '600 23px ' + F_GEO2; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#3a0d14'; ctx.fillText('Add to Home', x + rw / 2 + 24, ay + 28); ctx.fillText('Screen', x + rw / 2 + 24, ay + 52);
   }, () => a2Show());
   const again = (x) => offsetFace('startover', x, ay, rw, 76, '#fff7ec', () => { ctx.font = '600 26px ' + F_GEO2; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#6b4a4f'; ctx.fillText('Start again', x + rw / 2, ay + 39); }, () => storyGo(0));
-  if (!A2.standalone) { a2(40); if (resume) again(60 + rw); }
+  if (!A2.standalone) { if (resume) { a2(40); again(60 + rw); } else a2(VPW / 2 - rw / 2); }
   else if (resume) again(40);
   ctx.restore();
 }
